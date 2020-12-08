@@ -2,6 +2,8 @@ import javafx.event.ActionEvent;
 import javafx.fxml.Initializable;
 import javafx.scene.control.ListView;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
@@ -19,8 +21,19 @@ public class CloudController implements Initializable {
     public ListView<String> clientView;
     public ListView<String> serverView;
 
-    public void upload(ActionEvent actionEvent) {
-
+    public void upload(ActionEvent actionEvent) throws IOException {
+        Network.get().getOut().writeUTF("/upload");
+        String fileName = clientView.getSelectionModel().getSelectedItem();
+        Network.get().getOut().writeUTF(fileName);
+        File file = new File(clientDir + "/" + fileName);
+        long size = file.length();
+        Network.get().getOut().writeLong(size);
+        byte[] buffer = new byte[255];
+        FileInputStream fis = new FileInputStream(file);
+        for (int i = 0; i < (size + 255) / 256; i++) {
+            int read = fis.read(buffer);
+            Network.get().getOut().write(buffer, 0, read);
+        }
     }
 
     public void download(ActionEvent actionEvent) {
