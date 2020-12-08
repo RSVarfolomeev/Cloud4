@@ -3,8 +3,16 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class Handler implements Runnable {
+
+    private String userDir = "server/serverFiles";
+    private Path userPath;
 
     private static int inc = 0;
     private String userName;
@@ -19,6 +27,11 @@ public class Handler implements Runnable {
         this.socket = socket;
         inc++;
         userName = "User" + inc;
+        userDir += "/" + userName;
+        userPath = Paths.get(userDir);
+        if (Files.notExists(userPath)) {
+            Files.createDirectory(userPath);
+        }
         initStreams();
         running = true;
     }
@@ -47,7 +60,14 @@ public class Handler implements Runnable {
             while (running) {
                 String message = readMessage();
                 System.out.println("Received: " + message);
-                server.sendMessageForAll(wrapMessageWithName(message));
+                if (message.equals("/list")) {
+                    List<String> userFiles = getFiles();
+                    out.writeInt(userFiles.size());
+                    for (String userFile : userFiles) {
+                        out.writeUTF(userFile);
+                    }
+                    out.flush();
+                }
             }
         } catch (Exception e) {
             System.err.println("Exception while read or write!");
@@ -55,6 +75,11 @@ public class Handler implements Runnable {
         } finally {
             close();
         }
+    }
+
+    private List<String> getFiles() throws IOException {
+        return Files.list(userPath).map(path -> path.getFileName().toString())
+                .collect(Collectors.toList());
     }
 
     public void close() {
