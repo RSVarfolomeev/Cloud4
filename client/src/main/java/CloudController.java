@@ -4,6 +4,7 @@ import javafx.scene.control.ListView;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
@@ -34,14 +35,38 @@ public class CloudController implements Initializable {
             int read = fis.read(buffer);
             Network.get().getOut().write(buffer, 0, read);
         }
+        Network.get().getOut().flush();
+        fillServerData();
     }
 
-    public void download(ActionEvent actionEvent) {
-
+    public void download(ActionEvent actionEvent) throws IOException {
+        Network.get().getOut().writeUTF("/download");
+        String fileName = serverView.getSelectionModel().getSelectedItem();
+        Network.get().getOut().writeUTF(fileName);
+        long size = Network.get().getIn().readLong();
+        File file = new File(clientDir + "/" + fileName);
+        if (!file.exists()) {
+            file.createNewFile();
+        }
+        FileOutputStream fos = new FileOutputStream(file);
+        byte [] buffer = new byte[256];
+        for (int i = 0; i < (size + 255) / 256; i++) {
+            if (i == (size + 255) / 256 - 1) {
+                for (int j = 0; j < size % 256; j++) {
+                    fos.write(Network.get().getIn().readByte());
+                }
+            } else {
+                int read = Network.get().getIn().read(buffer);
+                fos.write(buffer, 0, read);
+            }
+        }
+        fos.close();
+        fillClientData();
     }
 
     private void fillServerData() {
         try {
+            serverView.getItems().clear();
             serverView.getItems().addAll(getServerFiles());
         } catch (IOException e) {
             e.printStackTrace();
@@ -51,6 +76,7 @@ public class CloudController implements Initializable {
 
     private void fillClientData() {
         try {
+            clientView.getItems().clear();
             clientView.getItems().addAll(getClientFiles());
         } catch (IOException e) {
             e.printStackTrace();

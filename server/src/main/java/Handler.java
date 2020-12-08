@@ -1,7 +1,4 @@
-import java.io.Closeable;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -65,6 +62,40 @@ public class Handler implements Runnable {
                     out.writeInt(userFiles.size());
                     for (String userFile : userFiles) {
                         out.writeUTF(userFile);
+                    }
+                    out.flush();
+                }
+                if (message.equals("/upload")) {
+                    String fileName = in.readUTF();
+                    long size = in.readLong();
+                    byte[] buffer = new byte[256];
+                    Path path = Paths.get(userDir, fileName);
+                    if (Files.notExists(path)) {
+                        Files.createFile(path);
+                    }
+                    FileOutputStream fos = new FileOutputStream(new File(userDir + "/" + fileName));
+                    for (int i = 0; i < (size + 255) / 256; i++) {
+                        if (i == (size + 255) / 256 - 1) {
+                            for (int j = 0; j < size % 256; j++) {
+                                fos.write(in.readByte());
+                            }
+                        } else {
+                            int read = in.read(buffer);
+                            fos.write(buffer, 0, read);
+                        }
+                    }
+                    fos.close();
+                }
+                if (message.equals("/download")) {
+                    String fileName = in.readUTF();
+                    File file = new File(userDir + "/" + fileName);
+                    long size = file.length();
+                    FileInputStream fis = new FileInputStream(file);
+                    out.writeLong(size);
+                    byte[] buffer = new byte[256];
+                    for (int i = 0; i < (size + 255) / 256; i++) {
+                        int read = fis.read(buffer);
+                        out.write(buffer, 0, read);
                     }
                     out.flush();
                 }
